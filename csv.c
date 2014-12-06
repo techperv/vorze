@@ -7,6 +7,7 @@ CsvEntry *csvLoad(char *file) {
 	int n;
 	int ts, v1, v2;
 	FILE *f;
+	char buff[1024];
 	
 	f=fopen(file, "r");
 	if (f==NULL) {
@@ -16,7 +17,8 @@ CsvEntry *csvLoad(char *file) {
 	//First, figure out amount of lines in file.
 	n=0;
 	while(!feof(f)) {
-		if (fscanf(f, "%d,%d,%d", &ts, &v1, &v2)==3) n++;
+		fgets(buff, sizeof(buff), f);
+		if (sscanf(buff, "%d,%d,%d", &ts, &v1, &v2)==3) n++;
 	}
 	//Allocate memory for everything
 	ret=malloc(sizeof(CsvEntry)*(n+1));
@@ -24,7 +26,8 @@ CsvEntry *csvLoad(char *file) {
 	rewind(f);
 	n=0;
 	while(!feof(f)) {
-		if (fscanf(f, "%d,%d,%d", &ret[n].timestamp, &ret[n].v1, &ret[n].v2)==3) n++;
+		fgets(buff, sizeof(buff), f);
+		if (sscanf(buff, "%d,%d,%d", &ret[n].timestamp, &ret[n].v1, &ret[n].v2)==3) n++;
 	}
 	ret[n].timestamp=-1;
 	ret[n].v1=0;
