@@ -16,15 +16,66 @@ BTLE implementation, so it'll *only* work with the provided stick.
 #include <time.h>
 #include <sys/select.h>
 #include <sys/ioctl.h>
+#include <glob.h>
 
 #define BAUDRATE B19200
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
 
-//01 01 00 - reset
-//01 01 82 - 1,2
-//
+#define VORZE_VID "10c4"
+#define VORZE_PID "897c"
+
+//This is a pretty evil way to figure out the serial port the stick thingamajig is connected to... 
+//but hey, it works. If you're on Linux. A recent version.
+int vorzeDetectPort(char *serport) {
+	int ix;
+	int found=0;
+	char buff[1024];
+	char id[1024];
+	glob_t globbuf;
+	glob_t globbuf2;
+	FILE *f;
+
+	//Iterate over each USB device.
+	glob("/sys/bus/usb/devices/*/", 0, NULL, &globbuf);
+	for (ix=0; ix<globbuf.gl_pathc; ix++) {
+		//Check VID
+		sprintf(buff, "%s/idVendor", globbuf.gl_pathv[ix]);
+		f=fopen(buff, "r");
+		if (f==NULL) continue;
+		fgets(id, sizeof(id), f);
+		fclose(f);
+		if (strncmp(id, VORZE_VID, 4)!=0) continue;
+
+		//check PID
+		sprintf(buff, "%s/idProduct", globbuf.gl_pathv[ix]);
+		f=fopen(buff, "r");
+		if (f==NULL) continue;
+		fgets(id, sizeof(id), f);
+		fclose(f);
+		if (strncmp(id, VORZE_PID, 4)!=0) continue;
+
+		//Grab the name of the file that lives at
+		//sys/bus/usb/devices/x-y\:1.0/ttyUSB*/
+		sprintf(buff, "%s*:1.0/ttyUSB*", globbuf.gl_pathv[ix]);
+		printf("glob %s\n", buff);
+		glob(buff, 0, NULL, &globbuf2);
+		if (globbuf2.gl_pathc!=0) {
+			char *p=strstr(globbuf2.gl_pathv[0], "ttyUSB");
+			if (p!=NULL) {
+				sprintf(serport, "/dev/%s", p);
+				printf("Found Vorze USB stick at %s, dev name %s\n", globbuf.gl_pathv[ix], p);
+				found=1;
+			}
+		}
+		globfree(&globbuf2);
+	}
+	globfree(&globbuf);
+	if (!found) printf("No Forze USB stick found.\n");
+	return found;
+}
+
 
 int vorzeOpen(char *port) {
 	struct termios newtio;
