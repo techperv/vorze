@@ -105,6 +105,7 @@ int main(int argc, char **argv) {
 		while(1) {
 			jsRead(js, &v1, &v2);
 			vorzeSet(vorze, v1, v2);
+			usleep(10000);
 		}
 		jsClose(js);
 	}
