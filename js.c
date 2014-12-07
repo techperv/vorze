@@ -15,6 +15,10 @@
 int jsOpen(char *devname) {
 	int js;
 	js=open(devname, O_RDONLY|O_NONBLOCK);
+	if (js<0) {
+		perror(devname);
+		exit(1);
+	}
 	return js;
 }
 
@@ -27,6 +31,7 @@ void jsRead(int js, int *v1, int *v2) {
 		l=read(js, &ev, sizeof(ev));
 		if (l==sizeof(ev)) {
 			if (ev.type==JS_EVENT_AXIS) {
+//				printf("js: axis %d val %d\n", ev.number, ev.value);
 				if (ev.number==1) a1=ev.value;
 				if (ev.number==2) a2=ev.value;
 			}
@@ -36,11 +41,12 @@ void jsRead(int js, int *v1, int *v2) {
 	v=v>>16;
 	if (v<0) {
 		*v1=1;
-		*v2=((float)v/-327.67);
+		*v2=-((float)v/80);
 	} else {
 		*v1=0;
-		*v2=((float)v/-327.67);
+		*v2=((float)v/80);
 	}
+	if (*v2>100) *v2=100;
 }
 
 void jsClose(int js) {

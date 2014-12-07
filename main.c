@@ -40,21 +40,21 @@ int main(int argc, char **argv) {
 	strcpy(serport, "");
 
 
-	for (ix=0; ix<argc; ix++) {
+	for (ix=1; ix<argc; ix++) {
 		if (!strcmp(argv[ix], "-c") && ix>argc+1) {
 			ix++;
 			strcpy(serport, argv[ix]);
-		} else if (!strcmp(argv[ix], "-u") && ix>argc+1) {
+		} else if (!strcmp(argv[ix], "-u") && ix<argc-1) {
 			ix++;
 			port=atoi(argv[ix]);
-		} else if (!strcmp(argv[ix], "-o") && ix>argc+1) {
+		} else if (!strcmp(argv[ix], "-o") && ix<argc-1) {
 			ix++;
 			offset=atoi(argv[ix]);
-		} else if (!strcmp(argv[ix], "play") && ix>argc+1) {
+		} else if (!strcmp(argv[ix], "play") && ix<argc-1) {
 			action=ACT_PLAY;
 			ix++;
 			strcpy(csvfile, argv[ix]);
-		} else if (!strcmp(argv[ix], "record") && ix>argc+1) {
+		} else if (!strcmp(argv[ix], "record") && ix<argc-1) {
 			action=ACT_RECORD;
 			ix++;
 			strcpy(csvfile, argv[ix]);
@@ -91,9 +91,9 @@ int main(int argc, char **argv) {
 
 		handleTs(0, csv, vorze);
 		while(ts>=0) {
-			ts=mplayerUdpGetTimestamp(sock)-offset;
+			ts=mplayerUdpGetTimestamp(sock)+offset;
 			handleTs(ts, csv, vorze);
-//			printf("Frame: %d\n", ts);
+			printf("Frame: %d\n", ts);
 		}
 		mplayerUdpClose(sock);
 		csvFree(csv);
@@ -101,11 +101,15 @@ int main(int argc, char **argv) {
 
 	if (action==ACT_TEST) {
 		int v1, v2;
+		int oldv1=-1, oldv2=-1;
 		js=jsOpen(jsdev);
 		while(1) {
 			jsRead(js, &v1, &v2);
-			vorzeSet(vorze, v1, v2);
-			usleep(10000);
+			if (v1!=oldv1 || v2!=oldv2) {
+				vorzeSet(vorze, v1, v2);
+				oldv1=v1; oldv2=v2;
+			}
+			usleep(150000);
 		}
 		jsClose(js);
 	}
