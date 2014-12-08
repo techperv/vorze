@@ -98,7 +98,32 @@ int main(int argc, char **argv) {
 		mplayerUdpClose(sock);
 		csvFree(csv);
 	}
-
+	
+	if (action==ACT_RECORD) {
+		int v1, v2;
+		int oldv1=-1, oldv2=-1;
+		FILE *f;
+		js=jsOpen(jsdev);
+		sock=mplayerUdpOpen(port);
+		if (sock<=0) exit(1);
+		f=fopen(csvfile, "w");
+		if (f==NULL) {
+			perror(csvfile);
+			exit(1);
+		}
+		while(ts>=0) {
+			ts=mplayerUdpGetTimestamp(sock)+offset;
+			jsRead(js, &v1, &v2);
+			if (v1!=oldv1 || v2!=oldv2) {
+				vorzeSet(vorze, v1, v2);
+				oldv1=v1; oldv2=v2;
+				fprintf(f, "%d,%d,%d\n", ts, v1, v2);
+			}
+		}
+		fclose(f);
+		jsClose(js);
+	}
+	
 	if (action==ACT_TEST) {
 		int v1, v2;
 		int oldv1=-1, oldv2=-1;
@@ -109,9 +134,8 @@ int main(int argc, char **argv) {
 				vorzeSet(vorze, v1, v2);
 				oldv1=v1; oldv2=v2;
 			}
-			usleep(150000);
+			usleep(100000);
 		}
 		jsClose(js);
 	}
-
 }
