@@ -24,6 +24,7 @@ int jsOpen(char *devname) {
 
 void jsRead(int js, int *v1, int *v2) {
 	static int a1=0, a2=0;
+	static int b1=0,b2=0;
 	long v;
 	struct js_event ev;
 	int l;
@@ -31,13 +32,23 @@ void jsRead(int js, int *v1, int *v2) {
 		l=read(js, &ev, sizeof(ev));
 		if (l==sizeof(ev)) {
 			if (ev.type==JS_EVENT_AXIS) {
-//				printf("js: axis %d val %d\n", ev.number, ev.value);
+				printf("js: axis %d val %d\n", ev.number, ev.value);
 				if (ev.number==1) a1=ev.value;
 				if (ev.number==2) a2=ev.value;
+			} else if (ev.type==JS_EVENT_BUTTON) {
+				printf("js: but %d val %d\n", ev.number, ev.value);
+				if (ev.number==1) b1=ev.value;
+				if (ev.number==2) b2=ev.value;
 			}
 		}
 	} while (l==sizeof(ev));
-	v=a1*a2;
+	if (b1) {
+		v=a1*30000;
+	} else if (b2) {
+		v=-a1*30000;
+	} else {
+		v=a1*a2;
+	}
 	v=v>>16;
 	if (v<0) {
 		*v1=1;
