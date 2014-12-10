@@ -27,16 +27,20 @@ USING IT
 - Start up a terminal for the rest of the commands
 - Run 'load.sh'. It will ask for your sudo-password to load the driver for the
   chipset on the stick and bind it to the (non-standard) PID/VID it uses.
-- Run dmesg. At the end, you should see a line like
-  'usb 1-2: cp210x converter now attached to ttyUSB0'.
-  Note the ttyUSB0. If it's different (eg ttyUSB1) you'll need to change the next
-  command accordingly.
-- Run the vorze tool with the csv file that goes with the movie you're about to watch and
-  the port you just spotted. For example:
-  ./vorzemplayer faphero_v1.csv /dev/ttyUSB0
+- Run the vorze tool with the csv file that goes with the movie you're about to watch.
+  For example:
+  ./vorzemplayer play faphero_v1.csv
 - Run mplayer with the -udp-master option to play the movie:
   mplayer -udp-master faphero1.mp4
 - Enjoy!
+
+MORE FUN
+
+If you have a joystick, you can also try the 'test' and 'record' option instead of the
+'play' option. It'll allow you to control your Vorze from the joystick, with the
+'record' option giving you the opportunity to recrd your own csv files. This functionality
+still is experimental though, and at the moment it seems there's a bottleneck with the
+amount of data that can be sent to the Vorze in a short timespan.
 
 
 
