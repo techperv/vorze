@@ -26,6 +26,25 @@ BTLE implementation, so it'll *only* work with the provided stick.
 #define VORZE_VID "10c4"
 #define VORZE_PID "897c"
 
+/*
+The Vorze has trouble accepting lots of commands at once. It seems to have a FIFO of depth
+2, that is, you can have 2 commands 'in flight' without problems. Add a 3rd and best case,
+the command will get lost; worst case the Vorze disconnects and needs to be reset.
+*/
+
+#define FIFO_LEN 2		//amount of commands that can be processed
+#define TOF_MS 250		//processing time of a command, in ms. Guessed for now.
+
+//This struct will keep track of the packets that are in flight.
+static struct {
+	struct timespec ts;
+	int used;
+} slots[FIFO_LEN];
+
+//currV1 and currV2 hold the last valued that should have been passed to the Vorze.
+//needsResend is 1 if the last packet bounced due to a full fifo.
+static int currV1, currV2, needResend;
+
 //This is a pretty evil way to figure out the serial port the stick thingamajig is connected to... 
 //but hey, it works. If you're on Linux. A recent version.
 int vorzeDetectPort(char *serport) {
@@ -77,13 +96,15 @@ int vorzeDetectPort(char *serport) {
 }
 
 
+//Open the serial port to the Vorze.
 int vorzeOpen(char *port) {
 	struct termios newtio;
 	fd_set rfds;
 	struct timeval tv;
 	int com;
 	int status;
-	
+	int x;
+
 	com=open(port, O_RDWR | O_NOCTTY | CRTSCTS );
 	if (com <0) {
 		perror("Opening comport");
@@ -106,15 +127,72 @@ int vorzeOpen(char *port) {
 	status |= TIOCM_DTR;
 	status |= TIOCM_CTS;
 	ioctl(com, TIOCMSET, &status);
+
+	for (x=0; x<FIFO_LEN; x++) {
+		slots[x].used=0;
+	}
+	needResend=0;
+
 	vorzeSet(com, 0, 0);
 	return com;
 }
 
+static void handleSlots() {
+	//Reset the used bit if the ts of the slot is more than TOF_MS in the past
+	int i;
+	struct timespec ts;
+
+	//Calculate the point in time where if a packet has been sent earlier than this,
+	//they have arrived now.
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	ts.tv_nsec-=TOF_MS*1000L*1000L;
+	if (ts.tv_nsec<0) {
+		ts.tv_sec++;
+		ts.tv_nsec+=1000000000L;
+	}
+
+	//Mark as unused every slot that holds info for a packet that has arrived by now.
+	for (i=0; i<FIFO_LEN; i++) {
+		if (slots[i].used) {
+			if (slots[i].ts.tv_sec<ts.tv_sec) slots[i].used=0;
+			if (slots[i].ts.tv_sec==ts.tv_sec && slots[i].ts.tv_nsec<ts.tv_nsec) slots[i].used=0;
+		}
+	}
+}
+
+int vorzeDoResendIfNeeded(int handle) {
+	int i, canSend=0;
+	handleSlots();
+	if (!needResend) return;
+	//Find free slot
+	for (i=0; i<FIFO_LEN; i++) {
+		if (!slots[i].used) canSend=1;
+	}
+	if (canSend) {
+		vorzeSet(handle, currV1, currV2);
+	}
+}
+
 int vorzeSet(int handle, int v1, int v2) {
+	int i;
+	int canSend=0;
 	char buff[3]={1,1,0};
-	buff[2]=(v1?0x80:0)|v2;
-	write(handle, buff, 3);
-	printf("V1=%d V2=%d\n", v1, v2);
+	currV1=v1; currV2=v2;
+	handleSlots();
+	for (i=0; i<FIFO_LEN; i++) {
+		if (!slots[i].used) canSend=1;
+	}
+	if (canSend) {
+		slots[i].used=1;
+		clock_gettime(CLOCK_MONOTONIC, &slots[i].ts);
+		buff[2]=(v1?0x80:0)|v2;
+		write(handle, buff, 3);
+		printf("V1=%d V2=%d\n", v1, v2);
+		needResend=0;
+	} else {
+		//We need to send this Later.
+		needResend=1;
+	}
 }
 
 int vorzeClose(int handle) {

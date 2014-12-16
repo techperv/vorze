@@ -12,6 +12,7 @@ void handleTs(int ts, CsvEntry *csv, int vorzeHandle) {
 	ent=csvGetForTs(csv, ts);
 	if (currV1!=ent->v1 && currV2!=ent->v2) {
 		vorzeSet(vorzeHandle, ent->v1, ent->v2);
+	} else {
 	}
 	currV1=ent->v1; currV2=ent->v2;
 }
@@ -118,6 +119,8 @@ int main(int argc, char **argv) {
 				vorzeSet(vorze, v1, v2);
 				oldv1=v1; oldv2=v2;
 				fprintf(f, "%d,%d,%d\n", ts, v1, v2);
+			} else {
+				vorzeDoResendIfNeeded(vorze);
 			}
 		}
 		fclose(f);
@@ -133,6 +136,8 @@ int main(int argc, char **argv) {
 			if (v1!=oldv1 || v2!=oldv2) {
 				vorzeSet(vorze, v1, v2);
 				oldv1=v1; oldv2=v2;
+			} else {
+				vorzeDoResendIfNeeded(vorze);
 			}
 			usleep(100000);
 		}
