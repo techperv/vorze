@@ -33,7 +33,7 @@ the command will get lost; worst case the Vorze disconnects and needs to be rese
 */
 
 #define FIFO_LEN 2		//amount of commands that can be processed
-#define TOF_MS 250		//processing time of a command, in ms. Guessed for now.
+#define TOF_MS 180		//processing time of a command, in ms.
 
 //This struct will keep track of the packets that are in flight.
 static struct {
@@ -141,13 +141,13 @@ static void handleSlots() {
 	//Reset the used bit if the ts of the slot is more than TOF_MS in the past
 	int i;
 	struct timespec ts;
-
+	
 	//Calculate the point in time where if a packet has been sent earlier than this,
 	//they have arrived now.
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	ts.tv_nsec-=TOF_MS*1000L*1000L;
-	if (ts.tv_nsec<0) {
-		ts.tv_sec++;
+	while (ts.tv_nsec<0) {
+		ts.tv_sec--;
 		ts.tv_nsec+=1000000000L;
 	}
 
@@ -156,6 +156,7 @@ static void handleSlots() {
 		if (slots[i].used) {
 			if (slots[i].ts.tv_sec<ts.tv_sec) slots[i].used=0;
 			if (slots[i].ts.tv_sec==ts.tv_sec && slots[i].ts.tv_nsec<ts.tv_nsec) slots[i].used=0;
+//			printf("Slot %d: %d\n", i, slots[i].used);
 		}
 	}
 }
@@ -166,7 +167,10 @@ int vorzeDoResendIfNeeded(int handle) {
 	if (!needResend) return;
 	//Find free slot
 	for (i=0; i<FIFO_LEN; i++) {
-		if (!slots[i].used) canSend=1;
+		if (!slots[i].used) {
+			canSend=1;
+			break;
+		}
 	}
 	if (canSend) {
 		vorzeSet(handle, currV1, currV2);
@@ -180,17 +184,21 @@ int vorzeSet(int handle, int v1, int v2) {
 	currV1=v1; currV2=v2;
 	handleSlots();
 	for (i=0; i<FIFO_LEN; i++) {
-		if (!slots[i].used) canSend=1;
+		if (slots[i].used==0) {
+			canSend=1;
+			break;
+		}
 	}
 	if (canSend) {
 		slots[i].used=1;
 		clock_gettime(CLOCK_MONOTONIC, &slots[i].ts);
 		buff[2]=(v1?0x80:0)|v2;
 		write(handle, buff, 3);
-		printf("V1=%d V2=%d\n", v1, v2);
+		printf("V1=%d V2=%d (slot %d)\n", v1, v2, i);
 		needResend=0;
 	} else {
 		//We need to send this Later.
+		printf("Skipping send due to FIFO full\n");
 		needResend=1;
 	}
 }
