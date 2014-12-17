@@ -10,7 +10,7 @@ void handleTs(int ts, CsvEntry *csv, int vorzeHandle) {
 	static char currV1=-1, currV2=-1;
 	CsvEntry *ent;
 	ent=csvGetForTs(csv, ts);
-	if (currV1!=ent->v1 && currV2!=ent->v2) {
+	if (currV1!=ent->v1 || currV2!=ent->v2) {
 		vorzeSet(vorzeHandle, ent->v1, ent->v2);
 	} else {
 	}
