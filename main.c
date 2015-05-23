@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
 		while(ts>=0) {
 			ts=mplayerUdpGetTimestamp(sock)+offset;
 			printf("\rFrame: %5d  ", ts);
-                        fflush(stdout);
+			fflush(stdout);
 			handleTs(ts, csv, vorze);
 		}
 		mplayerUdpClose(sock);
@@ -168,6 +168,7 @@ int main(int argc, char **argv) {
 			ts=mplayerUdpGetTimestamp(sock)+offset;
 			printf("\rFrame: %5d  ", ts);
 			jsRead(js, &v1, &v2);
+			fflush(stdout);
 			if (v1!=oldv1 || v2!=oldv2) {
 				vorzeSet(vorze, v1, v2);
 				oldv1=v1; oldv2=v2;
@@ -218,9 +219,9 @@ int main(int argc, char **argv) {
 			gotalarm = 0;
 			sigprocmask(SIG_UNBLOCK, &mask, NULL);
 			printf("\rFrame: %5d  ", ts);
-                        fflush(stdout);
+			fflush(stdout);
 			handleTs(ts, csv, vorze);
-                        ts++;
+			ts++;
 		}
 		csvFree(csv);
 	}
