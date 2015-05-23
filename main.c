@@ -92,8 +92,9 @@ int main(int argc, char **argv) {
 		handleTs(0, csv, vorze);
 		while(ts>=0) {
 			ts=mplayerUdpGetTimestamp(sock)+offset;
+			printf("\rFrame: %5d  ", ts);
+                        fflush(stdout);
 			handleTs(ts, csv, vorze);
-			printf("Frame: %d\n", ts);
 		}
 		mplayerUdpClose(sock);
 		csvFree(csv);

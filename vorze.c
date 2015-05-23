@@ -194,7 +194,7 @@ int vorzeSet(int handle, int v1, int v2) {
 		clock_gettime(CLOCK_MONOTONIC, &slots[i].ts);
 		buff[2]=(v1?0x80:0)|v2;
 		write(handle, buff, 3);
-		printf("V1=%d V2=%d (slot %d)\n", v1, v2, i);
+		printf("V1=%d V2=%3d (slot %d)\n", v1, v2, i);
 		needResend=0;
 	} else {
 		//We need to send this Later.
