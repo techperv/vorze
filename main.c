@@ -37,6 +37,10 @@ int main(int argc, char **argv) {
 	char serport[1024];
 	char csvfile[1024];
 	char jsdev[1024];
+	int jsaxis=0;
+	int fwdbtn=0;
+	int revbtn=1;
+	int usefwdbtn=0;
 	int js;
 	int sock;
 	int port=23867;
@@ -64,6 +68,20 @@ int main(int argc, char **argv) {
 			offset=atoi(argv[ix]);
 		} else if (!strcmp(argv[ix], "-n") && ix<argc-1) {
 			controlvorze=0;
+		} else if (!strcmp(argv[ix], "-j") && ix<argc-1) {
+			ix++;
+			strcpy(jsdev, argv[ix]);
+		} else if (!strcmp(argv[ix], "-a") && ix<argc-1) {
+			ix++;
+			jsaxis=atoi(argv[ix]);
+		} else if (!strcmp(argv[ix], "-f") && ix<argc-1) {
+			ix++;
+			fwdbtn=atoi(argv[ix]);
+		} else if (!strcmp(argv[ix], "-r") && ix<argc-1) {
+			ix++;
+			revbtn=atoi(argv[ix]);
+		} else if (!strcmp(argv[ix], "-g") && ix<argc-1) {
+			usefwdbtn=1;
 		} else if (!strcmp(argv[ix], "play") && ix<argc-1) {
 			action=ACT_PLAY;
 			ix++;
@@ -100,8 +118,15 @@ int main(int argc, char **argv) {
 		printf(" -c serport: specify Vorze serial port (def: autodetect)\n");
 		printf(" -u udpport: specify mplayer UDP port (def: 23867)\n");
 		printf(" -o 1234: specify movie offset in decisec (def: 0)\n");
+		printf(" -j /dev/input/js#: specify joystick device node\n");
+		printf(" -a ##: specify joystick axis to read (def: 0)\n");
+		printf(" -f ##: specify forward button (def: 0)\n");
+		printf(" -r ##: specify reverse button (def: 1)\n");
+		printf(" -g: motion only when fwd button pressed (def: ignore button)\n");
 		exit(0);
 	}
+
+	setJSParms(jsaxis, fwdbtn, revbtn, usefwdbtn);
 	
 	if (!controlvorze) enableSimulation();
 
@@ -141,6 +166,7 @@ int main(int argc, char **argv) {
 		}
 		while(ts>=0) {
 			ts=mplayerUdpGetTimestamp(sock)+offset;
+			printf("\rFrame: %5d  ", ts);
 			jsRead(js, &v1, &v2);
 			if (v1!=oldv1 || v2!=oldv2) {
 				vorzeSet(vorze, v1, v2);
@@ -225,8 +251,8 @@ int main(int argc, char **argv) {
 			}
 			gotalarm = 0;
 			sigprocmask(SIG_UNBLOCK, &mask, NULL);
-			jsRead(js, &v1, &v2);
 			printf("\rFrame: %5d  ", ts);
+			jsRead(js, &v1, &v2);
 			fflush(stdout);
 			if (v1!=oldv1 || v2!=oldv2) {
 				vorzeSet(vorze, v1, v2);
