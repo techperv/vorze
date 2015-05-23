@@ -41,6 +41,7 @@ int main(int argc, char **argv) {
 	int sock;
 	int port=23867;
 	int vorze;
+	int controlvorze=1;
 	int offset=0;
 	int ts=0;
 	int action=ACT_NONE;
@@ -61,6 +62,8 @@ int main(int argc, char **argv) {
 		} else if (!strcmp(argv[ix], "-o") && ix<argc-1) {
 			ix++;
 			offset=atoi(argv[ix]);
+		} else if (!strcmp(argv[ix], "-n") && ix<argc-1) {
+			controlvorze=0;
 		} else if (!strcmp(argv[ix], "play") && ix<argc-1) {
 			action=ACT_PLAY;
 			ix++;
@@ -93,12 +96,15 @@ int main(int argc, char **argv) {
 		printf(" %s test [options]\n", argv[0]);
 		printf(" %s playsa file.csv [options]\n", argv[0]);
 		printf(" %s recordsa file.csv [options]\n", argv[0]);
+		printf(" -n: don't control Vorze (def: do control)\n");
 		printf(" -c serport: specify Vorze serial port (def: autodetect)\n");
 		printf(" -u udpport: specify mplayer UDP port (def: 23867)\n");
 		printf(" -o 1234: specify movie offset in decisec (def: 0)\n");
 		exit(0);
 	}
 	
+	if (!controlvorze) enableSimulation();
+
 	if (strlen(serport)==0) vorzeDetectPort(serport);
 
 	vorze=vorzeOpen(serport);
