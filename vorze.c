@@ -91,7 +91,7 @@ int vorzeDetectPort(char *serport) {
 		globfree(&globbuf2);
 	}
 	globfree(&globbuf);
-	if (!found) printf("No Forze USB stick found.\n");
+	if (!found) printf("No Vorze USB stick found.\n");
 	return found;
 }
 
