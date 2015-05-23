@@ -32,11 +32,11 @@ void jsRead(int js, int *v1, int *v2) {
 		l=read(js, &ev, sizeof(ev));
 		if (l==sizeof(ev)) {
 			if (ev.type==JS_EVENT_AXIS) {
-				printf("js: axis %d val %d\n", ev.number, ev.value);
+				//printf("js: axis %d val %d\n", ev.number, ev.value);
 				if (ev.number==1) a1=ev.value;
 				if (ev.number==2) a2=ev.value;
 			} else if (ev.type==JS_EVENT_BUTTON) {
-				printf("js: but %d val %d\n", ev.number, ev.value);
+				//printf("js: but %d val %d\n", ev.number, ev.value);
 				if (ev.number==1) b1=ev.value;
 				if (ev.number==2) b2=ev.value;
 			}
