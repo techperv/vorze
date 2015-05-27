@@ -91,13 +91,21 @@ int vorzeDetectPort(char *serport) {
 		globfree(&globbuf2);
 	}
 	globfree(&globbuf);
-	if (!found) printf("No Forze USB stick found.\n");
+	if (!found) printf("No Vorze USB stick found.\n");
 	return found;
 }
 
+//Don't actually send anything to Vorze; just write console output
+static int simulate=0;
+
+void enableSimulation() {
+	simulate=1;
+}
 
 //Open the serial port to the Vorze.
 int vorzeOpen(char *port) {
+	if (simulate) return 255;
+
 	struct termios newtio;
 	fd_set rfds;
 	struct timeval tv;
@@ -162,6 +170,8 @@ static void handleSlots() {
 }
 
 int vorzeDoResendIfNeeded(int handle) {
+	if (simulate) return;
+
 	int i, canSend=0;
 	handleSlots();
 	if (!needResend) return;
@@ -178,6 +188,13 @@ int vorzeDoResendIfNeeded(int handle) {
 }
 
 int vorzeSet(int handle, int v1, int v2) {
+	const char fmtstr[] = "V1=%d V2=%3d (slot %d)\n";
+
+	if (simulate) {
+		printf(fmtstr, v1, v2, 0);
+		return;
+	}
+
 	int i;
 	int canSend=0;
 	char buff[3]={1,1,0};
@@ -194,7 +211,7 @@ int vorzeSet(int handle, int v1, int v2) {
 		clock_gettime(CLOCK_MONOTONIC, &slots[i].ts);
 		buff[2]=(v1?0x80:0)|v2;
 		write(handle, buff, 3);
-		printf("V1=%d V2=%d (slot %d)\n", v1, v2, i);
+		printf(fmtstr, v1, v2, i);
 		needResend=0;
 	} else {
 		//We need to send this Later.
@@ -204,7 +221,13 @@ int vorzeSet(int handle, int v1, int v2) {
 }
 
 int vorzeClose(int handle) {
-	vorzeSet(handle, 0, 0);
+	if (!simulate) {
+		printf("\nAttempting to stop Vorze...\n");
+		vorzeSet(handle, 0, 0);
+		usleep(250000);
+		vorzeSet(handle, 0, 0);
+		usleep(250000);
+		vorzeSet(handle, 0, 0);
+	}
 	close(handle);
-	return;
 }
