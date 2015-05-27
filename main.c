@@ -25,11 +25,15 @@ void handleTs(int ts, CsvEntry *csv, int vorzeHandle) {
 #define ACT_PLAYSA 4
 #define ACT_RECORDSA 5
 
-volatile sig_atomic_t gotalarm=0;
+volatile sig_atomic_t gotalarm=0, gotkill=0;
 
-void handle_alarm(int signum) {
-	gotalarm=1;
-	signal(SIGALRM, handle_alarm);
+void handle_signal(int signum) {
+	if (signum==SIGALRM) {
+		gotalarm=1;
+		signal(SIGALRM, handle_signal);
+	} else if (signum==SIGINT||signum==SIGQUIT||signum==SIGTERM) {
+		gotkill=1;
+	}
 }
 
 int main(int argc, char **argv) {
@@ -135,6 +139,10 @@ int main(int argc, char **argv) {
 	vorze=vorzeOpen(serport);
 	if (vorze<=0) exit(1);
 
+	signal(SIGINT, handle_signal);
+	signal(SIGQUIT, handle_signal);
+	signal(SIGTERM, handle_signal);
+
 	if (action==ACT_PLAY) {
 		csv=csvLoad(csvfile);
 		if (csv==NULL) exit(1);
@@ -144,6 +152,7 @@ int main(int argc, char **argv) {
 		handleTs(0, csv, vorze);
 		while(ts>=0) {
 			ts=mplayerUdpGetTimestamp(sock)+offset;
+			if (gotkill) break;
 			printf("\rFrame: %5d  ", ts);
 			fflush(stdout);
 			handleTs(ts, csv, vorze);
@@ -166,6 +175,7 @@ int main(int argc, char **argv) {
 		}
 		while(ts>=0) {
 			ts=mplayerUdpGetTimestamp(sock)+offset;
+			if (gotkill) break;
 			printf("\rFrame: %5d  ", ts);
 			jsRead(js, &v1, &v2);
 			fflush(stdout);
@@ -194,6 +204,7 @@ int main(int argc, char **argv) {
 				vorzeDoResendIfNeeded(vorze);
 			}
 			usleep(100000);
+			if (gotkill) break;
 		}
 		jsClose(js);
 	}
@@ -205,7 +216,7 @@ int main(int argc, char **argv) {
 		sigemptyset(&mask);
 		sigaddset(&mask, SIGALRM);
 		sigprocmask(SIG_BLOCK, &mask, &oldmask);
-		signal(SIGALRM, handle_alarm);
+		signal(SIGALRM, handle_signal);
 		const struct itimerval TENTHS = {{0, 100000}, {0, 100000}};
 		if (setitimer(ITIMER_REAL, &TENTHS, NULL)) {
 			exit(1);
@@ -215,6 +226,7 @@ int main(int argc, char **argv) {
 		while(ts>=0) {
 			while(!gotalarm) {
 				sigsuspend(&oldmask);
+				if (gotkill) goto playsa_stop;
 			}
 			gotalarm = 0;
 			sigprocmask(SIG_UNBLOCK, &mask, NULL);
@@ -223,6 +235,7 @@ int main(int argc, char **argv) {
 			handleTs(ts, csv, vorze);
 			ts++;
 		}
+		playsa_stop:
 		csvFree(csv);
 	}
 
@@ -240,7 +253,7 @@ int main(int argc, char **argv) {
 		sigemptyset(&mask);
 		sigaddset(&mask, SIGALRM);
 		sigprocmask(SIG_BLOCK, &mask, &oldmask);
-		signal(SIGALRM, handle_alarm);
+		signal(SIGALRM, handle_signal);
 		const struct itimerval TENTHS = {{0, 100000}, {0, 100000}};
 		if (setitimer(ITIMER_REAL, &TENTHS, NULL)) {
 			exit(1);
@@ -249,6 +262,7 @@ int main(int argc, char **argv) {
 		while(ts>=0) {
 			while(!gotalarm) {
 				sigsuspend(&oldmask);
+				if (gotkill) goto recordsa_stop;
 			}
 			gotalarm = 0;
 			sigprocmask(SIG_UNBLOCK, &mask, NULL);
@@ -265,7 +279,10 @@ int main(int argc, char **argv) {
 			}
 			ts++;
 		}
+		recordsa_stop:
 		fclose(f);
 		jsClose(js);
 	}
+
+	vorzeClose(vorze);
 }
