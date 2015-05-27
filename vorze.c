@@ -222,15 +222,11 @@ int vorzeSet(int handle, int v1, int v2) {
 
 int vorzeClose(int handle) {
 	if (!simulate) {
-		printf("\nAttempting to stop Vorze.");
-		fflush(stdout);
+		printf("\nAttempting to stop Vorze...\n");
 		vorzeSet(handle, 0, 0);
 		usleep(250000);
-		printf(".");
-		fflush(stdout);
 		vorzeSet(handle, 0, 0);
 		usleep(250000);
-		printf(".\n");
 		vorzeSet(handle, 0, 0);
 	}
 	close(handle);
