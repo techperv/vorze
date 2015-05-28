@@ -12,6 +12,15 @@
 #include <sys/select.h>
 #include <linux/joystick.h>
 
+static int jsaxis, fwdbtn, revbtn, usefwdbtn;
+
+void setJSParms(int axis, int fbtn, int rbtn, int ufb) {
+	jsaxis=axis;
+	fwdbtn=fbtn;
+	revbtn=rbtn;
+	usefwdbtn=ufb;
+}
+
 int jsOpen(char *devname) {
 	int js;
 	js=open(devname, O_RDONLY|O_NONBLOCK);
@@ -23,39 +32,34 @@ int jsOpen(char *devname) {
 }
 
 void jsRead(int js, int *v1, int *v2) {
-	static int a1=0, a2=0;
+	static int a=0;
 	static int b1=0,b2=0;
-	long v;
+	int v;
 	struct js_event ev;
 	int l;
 	do {
 		l=read(js, &ev, sizeof(ev));
 		if (l==sizeof(ev)) {
 			if (ev.type==JS_EVENT_AXIS) {
-				printf("js: axis %d val %d\n", ev.number, ev.value);
-				if (ev.number==1) a1=ev.value;
-				if (ev.number==2) a2=ev.value;
+				if (ev.number==jsaxis) a=ev.value;
 			} else if (ev.type==JS_EVENT_BUTTON) {
-				printf("js: but %d val %d\n", ev.number, ev.value);
-				if (ev.number==1) b1=ev.value;
-				if (ev.number==2) b2=ev.value;
+				if (ev.number==fwdbtn) b1=ev.value;
+				if (ev.number==revbtn) b2=ev.value;
 			}
 		}
 	} while (l==sizeof(ev));
-	if (b1) {
-		v=a1*30000;
-	} else if (b2) {
-		v=-a1*30000;
-	} else {
-		v=a1*a2;
+	v=a;
+	if (b2) {
+		v=-v;
+	} else if (!b1 && usefwdbtn) {
+		v=0;
 	}
-	v=v>>16;
 	if (v<0) {
 		*v1=1;
-		*v2=-((float)v/80);
+		*v2=-v*100/30000;
 	} else {
 		*v1=0;
-		*v2=((float)v/80);
+		*v2=v*100/30000;
 	}
 	if (*v2>100) *v2=100;
 }
