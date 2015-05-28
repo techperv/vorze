@@ -1,0 +1,109 @@
+From 2e1533c565b1227eb7c6ae557dfebf93c03b70a5 Mon Sep 17 00:00:00 2001
+From: Crewmen <crewmen@sigaint.org>
+Date: Mon, 26 May 2015 05:54:58 +0000
+Subject: [PATCH 2/2] Fixing udp_sync and associated code, so udp_slave sort of
+ works.
+
+---
+ command.c  |  7 +++++++
+ mplayer.c  | 22 +++++++++++-----------
+ udp_sync.c |  7 ++++---
+ 3 files changed, 22 insertions(+), 14 deletions(-)
+
+diff --git a/command.c b/command.c
+index ae79669..ad7f5cf 100644
+--- a/command.c
++++ b/command.c
+@@ -71,6 +71,10 @@
+ #include "mp_fifo.h"
+ #include "libavutil/avstring.h"
+ 
++#ifdef CONFIG_NETWORKING
++#include "udp_sync.h"
++#endif /* CONFIG_NETWORKING */
++
+ static void rescale_input_coordinates(struct MPContext *mpctx, int ix, int iy,
+                                       double *dx, double *dy)
+ {
+@@ -2739,6 +2743,9 @@ void run_command(MPContext *mpctx, mp_cmd_t *cmd)
+         goto old_pause_hack;  // was handled already
+     switch (cmd->id) {
+     case MP_CMD_SEEK: {
++#ifdef CONFIG_NETWORKING
++        if (udp_slave) break;
++#endif /* CONFIG_NETWORKING */
+         mpctx->add_osd_seek_info = true;
+         float v = cmd->args[0].v.f;
+         int abs = (cmd->nargs > 1) ? cmd->args[1].v.i : 0;
+diff --git a/mplayer.c b/mplayer.c
+index 14ac794..a9f5042 100644
+--- a/mplayer.c
++++ b/mplayer.c
+@@ -3489,17 +3489,6 @@ static void run_playloop(struct MPContext *mpctx)
+             }
+         }
+ 
+-#ifdef CONFIG_NETWORKING
+-        if (udp_slave) {
+-            int udp_master_exited = udp_slave_sync(mpctx);
+-            if (udp_master_exited > 0) {
+-                mp_msg(MSGT_CPLAYER, MSGL_INFO, "Option -udp-slave: exiting because master exited\n");
+-                exit_player(mpctx, EXIT_QUIT);
+-            } else if (udp_master_exited == 0)
+-                goto flip_page;
+-        }
+-#endif /* CONFIG_NETWORKING */
+-
+         if (!video_left || (mpctx->paused && !mpctx->restart_playback))
+             break;
+         if (!vo->frame_loaded) {
+@@ -3760,6 +3749,17 @@ static void run_playloop(struct MPContext *mpctx)
+ 
+     current_module = "key_events";
+ 
++#ifdef CONFIG_NETWORKING
++    if (udp_slave) {
++        int udp_master_exited = udp_slave_sync(mpctx);
++        if (udp_master_exited > 0) {
++            mp_msg(MSGT_CPLAYER, MSGL_INFO,
++                   "Option -udp-slave: exiting because master exited\n");
++            exit_player(mpctx, EXIT_QUIT);
++        }
++    }
++#endif /* CONFIG_NETWORKING */
++
+     mp_cmd_t *cmd;
+     while ((cmd = mp_input_get_cmd(mpctx->input, 0, 1)) != NULL) {
+         /* Allow running consecutive seek commands to combine them,
+diff --git a/udp_sync.c b/udp_sync.c
+index 0c4a518..a366a25 100644
+--- a/udp_sync.c
++++ b/udp_sync.c
+@@ -56,7 +56,7 @@ int udp_slave  = 0;
+ int udp_port   = 23867;
+ const char *udp_ip = "127.0.0.1"; // where the master sends datagrams
+                                   // (can be a broadcast address)
+-float udp_seek_threshold = 1.0;   // how far off before we seek
++float udp_seek_threshold = 0.2;   // how far off before we seek
+ 
+ // how far off is still considered equal
+ #define UDP_TIMING_TOLERANCE 0.02
+@@ -205,12 +205,13 @@ int udp_slave_sync(struct MPContext *mpctx)
+     // grab any waiting datagrams without blocking
+     master_exited = get_udp(0, &udp_master_position);
+ 
+-    while (!master_exited || (!timed_out && master_exited < 0)) {
++    while (mpctx->sh_video->pts != MP_NOPTS_VALUE
++           && (!master_exited || (!timed_out && master_exited < 0))) {
+         double my_position = mpctx->sh_video->pts;
+ 
+         // if we're way off, seek to catch up
+         if (FFABS(my_position - udp_master_position) > udp_seek_threshold) {
+-            queue_seek(mpctx, MPSEEK_ABSOLUTE, udp_master_position, 1);
++            queue_seek(mpctx, MPSEEK_ABSOLUTE, udp_master_position, 0);
+             break;
+         }
+ 
+-- 
+1.9.1
+
